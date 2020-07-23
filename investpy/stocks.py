@@ -14,6 +14,7 @@ import pkg_resources
 import requests
 from unidecode import unidecode
 from lxml.html import fromstring
+from bs4 import BeautifulSoup
 
 from .utils import constant as cst
 from .utils.aux import random_user_agent
@@ -1434,6 +1435,139 @@ def get_stock_financial_summary(stock, country, summary_type='income_statement',
     dataset.set_index('Date', inplace=True)
 
     return dataset
+
+
+def get_stock_financial(stock, country, period='annual', as_json=False):
+    """
+    This function retrieves the financial details of the introduced stock (by symbol) from the introduced
+    country. Additionally, the period of the retrieved financial information can be specified.
+
+    Args:
+        stock (:obj:`str`): symbol of the stock to retrieve its financial summary.
+        country (:obj:`str`): name of the country from where the introduced stock symbol is.
+        period (:obj:`str`, optional):
+            period range of the financial summary table to rertieve, detault value is `annual`, but all the
+            available periods are: `annual` and `quarterly`.
+        as_json (:obj:`bool`, optional):
+            optional argument to determine the format of the output data (:obj:`pandas.DataFrame` or :obj:`json`).
+
+    Returns:
+        :obj:`pandas.DataFrame` - financial_summary:
+            The resulting :obj:`pandas.DataFrame` contains the table of the financial details from the
+            introduced stock.
+
+    Raises:
+        ValueError: raised if any of the introduced parameters is not valid or errored.
+        FileNotFoundError: raised if the stocks.csv file was not found.
+        IOError: raised if the stocks.csv file could not be read.
+        ConnectionError: raised if the connection to Investing.com errored or could not be established.
+        RuntimeError: raised if any error occurred while running the function.
+
+    Examples:
+        >>> investpy.get_stock_financial(stock='AAPL', country='United States', period='annual')
+
+    """
+
+    if not stock:
+        raise ValueError("ERR#0013: stock parameter is mandatory and must be a valid stock symbol.")
+
+    if not isinstance(stock, str):
+        raise ValueError("ERR#0027: stock argument needs to be a str.")
+
+    if country is None:
+        raise ValueError("ERR#0039: country can not be None, it should be a str.")
+
+    if not isinstance(country, str):
+        raise ValueError("ERR#0025: specified country value not valid.")
+
+    if period is None:
+        raise ValueError("ERR#0135: period can not be None, it should be a str.")
+
+    if not isinstance(period, str):
+        raise ValueError("ERR#0136: period value not valid.")
+
+    period = unidecode(period.strip().lower())
+
+    if period not in cst.FINANCIAL_SUMMARY_PERIODS.keys():
+        raise ValueError("ERR#0137: introduced period is not valid, since available values are: " + ', '.join(
+            cst.FINANCIAL_SUMMARY_PERIODS.keys()))
+
+    resource_package = 'investpy'
+    resource_path = '/'.join(('resources', 'stocks', 'stocks.csv'))
+    if pkg_resources.resource_exists(resource_package, resource_path):
+        stocks = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
+    else:
+        raise FileNotFoundError("ERR#0056: stocks file not found or errored.")
+
+    if stocks is None:
+        raise IOError("ERR#0001: stocks object not found or unable to retrieve.")
+
+    if unidecode(country.lower()) not in get_stock_countries():
+        raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
+
+    stocks = stocks[stocks['country'] == unidecode(country.lower())]
+
+    stock = unidecode(stock.strip().lower())
+
+    if stock not in [unidecode(value.strip().lower()) for value in stocks['symbol'].tolist()]:
+        raise RuntimeError("ERR#0018: stock " + stock + " not found, check if it is correct.")
+
+    id_ = stocks.loc[(stocks['symbol'].str.lower() == stock).idxmax(), 'id']
+
+    headers = {
+        "User-Agent": random_user_agent(),
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "text/html",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+    }
+
+    params = {
+        "action": "change_report_type",
+        "pid": id_,
+        "financial_id": id_,
+        "ratios_id": id_,
+        "period_type": cst.FINANCIAL_SUMMARY_PERIODS[period]
+    }
+
+    url = 'https://www.investing.com/instruments/Financials/changesummaryreporttypeajax'
+
+    req = requests.get(url, params=params, headers=headers)
+
+    if req.status_code != 200:
+        raise ConnectionError("ERR#0015: error " + str(req.status_code) + ", try again later.")
+
+    result = pd.DataFrame(columns=['Stock Symbol', 'Gross Margin', 'Operating Margin', 'Net Profit Margin',
+                                   'Return on Investment', 'Quick Ratio', 'Current Ratio', 'LT Debt to Equity',
+                                   'Total Debt to Equity', 'Cash Flow/Share', 'Revenue/Share', 'Operating Cash Flow'])
+    result.at[0, 'Stock Symbol'] = stock
+
+    soup = BeautifulSoup(req.text, 'html.parser')
+
+    element_income = soup.find_all(class_='info float_lang_base_2')[0].get_text()
+    result.at[0, 'Gross Margin'] = element_income.split('\n\n\n')[0].split(' ')[-1]
+    result.at[0, 'Operating Margin'] = element_income.split('\n\n\n')[1].split(' ')[-1]
+    result.at[0, 'Net Profit Margin'] = element_income.split('\n\n\n')[2].split(' ')[-1]
+    result.at[0, 'Return on Investment'] = element_income.split('\n\n\n')[3].split(' ')[-1]
+
+    element_balance = soup.find_all(class_='info float_lang_base_2')[1].get_text()
+    result.at[0, 'Quick Ratio'] = element_balance.split('\n\n\n')[0].split(' ')[-1]
+    result.at[0, 'Current Ratio'] = element_balance.split('\n\n\n')[1].split(' ')[-1]
+    result.at[0, 'LT Debt to Equity'] = element_balance.split('\n\n\n')[2].split(' ')[-1]
+    result.at[0, 'Total Debt to Equity'] = element_balance.split('\n\n\n')[3].split(' ')[-1]
+
+    element_cash = soup.find_all(class_='info float_lang_base_2')[2].get_text()
+    result.at[0, 'Cash Flow/Share'] = element_cash.split('\n\n\n')[0].split(' ')[-1]
+    result.at[0, 'Revenue/Share'] = element_cash.split('\n\n\n')[1].split(' ')[-1]
+    result.at[0, 'Operating Cash Flow'] = element_cash.split('\n\n\n')[2].split(' ')[-1]
+
+    result.replace({'N/A': None}, inplace=True)
+
+    if as_json is True:
+        json_ = result.iloc[0].to_dict()
+        return json_
+    elif as_json is False:
+        return result
 
 
 def search_stocks(by, value):
