@@ -1,7 +1,7 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pytz
 
 import json
@@ -14,7 +14,7 @@ import requests
 from unidecode import unidecode
 from lxml.html import fromstring
 
-from .utils.aux import random_user_agent
+from .utils.extra import random_user_agent
 from .utils.data import Data
 
 from .data.certificates_data import certificates_as_df, certificates_as_list, certificates_as_dict
@@ -204,15 +204,15 @@ def get_certificate_recent_data(certificate, country, as_json=False, order='asce
         IndexError: raised if certificate information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_certificate_recent_data(certificate='COMMERZBANK Call ALIBABA GROUP', country='france')
-                        Open  High   Low  Close
-            Date                               
-            2019-11-27  5.47  5.47  5.47   5.47
-            2019-12-05  5.52  5.52  5.52   5.52
-            2019-12-10  5.37  5.37  5.37   5.37
-            2019-12-12  6.27  6.27  6.27   6.27
-            2019-12-16  6.80  6.80  6.80   6.80
-            2019-12-20  7.50  7.50  7.50   7.50
+        >>> data = investpy.get_certificate_recent_data(certificate='BNP Gold 31Dec99', country='france')
+        >>> data.head()
+                     Open   High     Low   Close
+        Date                                    
+        2020-07-09  146.4  146.8  145.95  145.95
+        2020-07-10  146.2  146.2  145.55  145.55
+        2020-07-13  145.6  145.6  145.45  145.45
+        2020-07-14  145.4  145.4  145.25  145.25
+        2020-07-15  144.9  145.1  144.70  144.95
 
     """
 
@@ -240,7 +240,9 @@ def get_certificate_recent_data(certificate, country, as_json=False, order='asce
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     resource_package = 'investpy'
@@ -253,20 +255,21 @@ def get_certificate_recent_data(certificate, country, as_json=False, order='asce
     if certificates is None:
         raise IOError("ERR#0097: certificates not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_certificate_countries():
+    country = unidecode(country.strip().lower())
+
+    if country not in get_certificate_countries():
         raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
 
-    certificates = certificates[certificates['country'] == unidecode(country.lower())]
+    certificates = certificates[certificates['country'] == country]
 
-    certificate = certificate.strip()
-    certificate = certificate.lower()
+    certificate = unidecode(certificate.strip().lower())
 
-    if unidecode(certificate) not in [unidecode(value.lower()) for value in certificates['name'].tolist()]:
+    if certificate not in list(certificates['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0101: certificate " + certificate + " not found, check if it is correct.")
 
-    symbol = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'symbol']
-    id_ = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'id']
-    name = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'name']
+    symbol = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'symbol']
+    id_ = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'id']
+    name = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'name']
 
     header = symbol + ' Historical Data'
 
@@ -274,7 +277,7 @@ def get_certificate_recent_data(certificate, country, as_json=False, order='asce
         "curr_id": id_,
         "smlID": str(randint(1000000, 99999999)),
         "header": header,
-        "interval_sec": interval,
+        "interval_sec": interval.capitalize(),
         "sort_col": "date",
         "sort_ord": "DESC",
         "action": "historical_data"
@@ -310,7 +313,7 @@ def get_certificate_recent_data(certificate, country, as_json=False, order='asce
             for nested_ in elements_.xpath(".//td"):
                 info.append(nested_.get('data-real-value'))
 
-            certificate_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+            certificate_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
             
             certificate_close = float(info[1].replace(',', ''))
             certificate_open = float(info[2].replace(',', ''))
@@ -398,14 +401,15 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
         IndexError: raised if certificate historical data was unavailable or not found in Investing.com.
 
     Examples:
-        >>> investpy.get_certificate_historical_data(certificate='COMMERZBANK Call ALIBABA GROUP', country='france', from_date='01/01/2010', to_date='01/01/2019')
-                         Open   High    Low  Close
-            Date                                  
-            2018-03-14  39.77  39.77  39.77  39.77
-            2018-03-15  48.18  48.18  48.18  46.48
-            2018-03-16  46.48  46.48  46.48  46.48
-            2018-03-19  40.73  40.73  40.73  40.73
-            2018-03-20  44.61  44.61  44.61  44.61
+        >>> data = investpy.get_certificate_historical_data(certificate='BNP Gold 31Dec99', country='france', from_date='01/01/2010', to_date='01/01/2019')
+        >>> data.head()
+                     Open   High    Low  Close
+        Date                                  
+        2010-01-04  77.15  77.15  77.15  77.15
+        2010-01-05  77.40  77.45  77.15  77.45
+        2010-01-06  78.40  78.40  78.40  78.40
+        2010-01-07  78.40  78.45  78.35  78.35
+        2010-01-08  77.95  78.10  77.95  78.10
 
     """
 
@@ -433,7 +437,9 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     try:
@@ -469,7 +475,7 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
 
             date_interval['intervals'].append(obj)
 
-            start_date = start_date.replace(year=start_date.year + 19, day=start_date.day + 1)
+            start_date = start_date.replace(year=start_date.year + 19) + timedelta(days=1)
         else:
             obj = {
                 'start': start_date.strftime('%m/%d/%Y'),
@@ -495,20 +501,21 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
     if certificates is None:
         raise IOError("ERR#0097: certificates not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_certificate_countries():
+    country = unidecode(country.strip().lower())
+
+    if country not in get_certificate_countries():
         raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
 
-    certificates = certificates[certificates['country'] == unidecode(country.lower())]
+    certificates = certificates[certificates['country'] == country]
 
-    certificate = certificate.strip()
-    certificate = certificate.lower()
+    certificate = unidecode(certificate.strip().lower())
 
-    if unidecode(certificate) not in [unidecode(value.lower()) for value in certificates['name'].tolist()]:
+    if certificate not in list(certificates['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0101: certificate " + certificate + " not found, check if it is correct.")
 
-    symbol = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'symbol']
-    id_ = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'id']
-    name = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'name']
+    symbol = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'symbol']
+    id_ = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'id']
+    name = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'name']
 
     header = symbol + ' Historical Data'
 
@@ -523,7 +530,7 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
             "header": header,
             "st_date": date_interval['intervals'][index]['start'],
             "end_date": date_interval['intervals'][index]['end'],
-            "interval_sec": interval,
+            "interval_sec": interval.capitalize(),
             "sort_col": "date",
             "sort_ord": "DESC",
             "action": "historical_data"
@@ -568,7 +575,7 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
                     info.append(nested_.get('data-real-value'))
 
                 if data_flag is True:
-                    certificate_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+                    certificate_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
             
                     certificate_close = float(info[1].replace(',', ''))
                     certificate_open = float(info[2].replace(',', ''))
@@ -585,24 +592,26 @@ def get_certificate_historical_data(certificate, country, from_date, to_date, as
                     result = result
 
                 if as_json is True:
-                    json_ = {
-                        'name': name,
-                        'historical':
-                            [value.certificate_as_json() for value in result]
-                    }
+                    json_list = [value.certificate_as_json() for value in result]
                     
-                    final.append(json_)
+                    final.append(json_list)
                 elif as_json is False:
                     df = pd.DataFrame.from_records([value.certificate_to_dict() for value in result])
                     df.set_index('Date', inplace=True)
 
                     final.append(df)
-
         else:
             raise RuntimeError("ERR#0004: data retrieval error while scraping.")
 
+    if order in ['descending', 'desc']:
+        final.reverse()
+
     if as_json is True:
-        return json.dumps(final[0], sort_keys=False)
+        json_ = {
+            'name': name,
+            'historical': [value for json_list in final for value in json_list]
+        }
+        return json.dumps(json_, sort_keys=False)
     elif as_json is False:
         return pd.concat(final)
 
@@ -628,21 +637,21 @@ def get_certificate_information(certificate, country, as_json=False):
             None values. If the retrieval process succeeded, the resulting :obj:`dict` will look like::
 
                 certificate_information = {
-                    "Certificate Name": "COMMERZBANK Call ALIBABA GROUP",
-                    "Certificate Country": "france",
-                    "Prev. Close": 8.2,
-                    "Todays Range": "7.9 - 7.9",
-                    "Leverage": "1:1",
-                    "Open": 7.9,
-                    "52 wk Range": "1.93 - 9.37",
-                    "Strike Price": "None",
-                    "Volume": 30.0,
-                    "Issue Date": "None",
-                    "Issue Amount": "None",
-                    "Average Vol. (3m)": 5150.0,
-                    "Maturity Date": "31/12/2099",
-                    "1-Year Change": "186.26%",
-                    "Asset Class": "Equity"
+                    "Certificate Name": "XXXX",
+                    "Certificate Country": "XXXX",
+                    "Prev. Close": X.Y,
+                    "Todays Range": "X.Y - X.Y",
+                    "Leverage": "X:Y",
+                    "Open": X.Y,
+                    "52 wk Range": "X.Y - X.Y",
+                    "Strike Price": "XXXX",
+                    "Volume": X.Y,
+                    "Issue Date": "XXXX",
+                    "Issue Amount": "XXXX",
+                    "Average Vol. (3m)": X.Y,
+                    "Maturity Date": "dd/mm/yyyy",
+                    "1-Year Change": "X.Y%",
+                    "Asset Class": "XXXX"
                 }
 
     """
@@ -672,19 +681,20 @@ def get_certificate_information(certificate, country, as_json=False):
     if certificates is None:
         raise IOError("ERR#0097: certificates not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_certificate_countries():
+    country = unidecode(country.strip().lower())
+
+    if country not in get_certificate_countries():
         raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
 
-    certificates = certificates[certificates['country'] == unidecode(country.lower())]
+    certificates = certificates[certificates['country'] == country]
 
-    certificate = certificate.strip()
-    certificate = certificate.lower()
+    certificate = unidecode(certificate.strip().lower())
 
-    if unidecode(certificate) not in [unidecode(value.lower()) for value in certificates['name'].tolist()]:
+    if certificate not in list(certificates['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0101: certificate " + certificate + " not found, check if it is correct.")
 
-    tag = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'tag']
-    name = certificates.loc[(certificates['name'].str.lower() == certificate).idxmax(), 'name']
+    tag = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'tag']
+    name = certificates.loc[(certificates['name'].apply(unidecode).str.lower() == certificate).idxmax(), 'name']
 
     url = "https://www.investing.com/certificates/" + tag
 
@@ -817,10 +827,12 @@ def get_certificates_overview(country, as_json=False, n_results=100):
     if certificates is None:
         raise IOError("ERR#0097: certificates not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_certificate_countries():
+    country = unidecode(country.strip().lower())
+
+    if country not in get_certificate_countries():
         raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
 
-    certificates = certificates[certificates['country'] == unidecode(country.lower())]
+    certificates = certificates[certificates['country'] == country]
 
     head = {
         "User-Agent": random_user_agent(),

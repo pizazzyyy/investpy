@@ -1,7 +1,7 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pytz
 
 import json
@@ -15,7 +15,7 @@ from unidecode import unidecode
 from lxml.html import fromstring
 
 from .utils import constant as cst
-from .utils.aux import random_user_agent
+from .utils.extra import random_user_agent
 from .utils.data import Data
 
 from .data.currency_crosses_data import currency_crosses_as_df, currency_crosses_as_list, currency_crosses_as_dict
@@ -231,14 +231,15 @@ def get_currency_cross_recent_data(currency_cross, as_json=False, order='ascendi
         IndexError: raised if currency_cross information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_currency_cross_recent_data(currency_cross='EUR/USD')
-                          Open    High     Low   Close Currency
-            Date
-            2019-08-27  1.1101  1.1116  1.1084  1.1091      USD
-            2019-08-28  1.1090  1.1099  1.1072  1.1078      USD
-            2019-08-29  1.1078  1.1093  1.1042  1.1057      USD
-            2019-08-30  1.1058  1.1062  1.0963  1.0991      USD
-            2019-09-02  1.0990  1.1000  1.0958  1.0968      USD
+        >>> data = investpy.get_currency_cross_recent_data(currency_cross='EUR/USD')
+        >>> data.head()
+                      Open    High     Low   Close Currency
+        Date
+        2019-08-27  1.1101  1.1116  1.1084  1.1091      USD
+        2019-08-28  1.1090  1.1099  1.1072  1.1078      USD
+        2019-08-29  1.1078  1.1093  1.1042  1.1057      USD
+        2019-08-30  1.1058  1.1062  1.0963  1.0991      USD
+        2019-09-02  1.0990  1.1000  1.0958  1.0968      USD
 
     """
 
@@ -260,7 +261,9 @@ def get_currency_cross_recent_data(currency_cross, as_json=False, order='ascendi
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     resource_package = 'investpy'
@@ -273,15 +276,14 @@ def get_currency_cross_recent_data(currency_cross, as_json=False, order='ascendi
     if currency_crosses is None:
         raise IOError("ERR#0050: currency_crosses not found or unable to retrieve.")
 
-    currency_cross = currency_cross.strip()
-    currency_cross = currency_cross.lower()
+    currency_cross = unidecode(currency_cross.strip().lower())
 
-    if unidecode(currency_cross) not in [unidecode(value.lower()) for value in currency_crosses['name'].tolist()]:
-        raise RuntimeError("ERR#0054: the introduced currency_cross " + str(currency_cross) + " does not exists.")
+    if currency_cross not in list(currency_crosses['name'].apply(unidecode).str.lower()):
+        raise RuntimeError("ERR#0054: the introduced currency_cross " + str(currency_cross) + " does not exist.")
 
-    id_ = currency_crosses.loc[(currency_crosses['name'].str.lower() == currency_cross).idxmax(), 'id']
-    name = currency_crosses.loc[(currency_crosses['name'].str.lower() == currency_cross).idxmax(), 'name']
-    currency = currency_crosses.loc[(currency_crosses['name'].str.lower() == currency_cross).idxmax(), 'second']
+    id_ = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'id']
+    name = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'name']
+    currency = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'second']
 
     header = name + ' Historical Data'
 
@@ -289,7 +291,7 @@ def get_currency_cross_recent_data(currency_cross, as_json=False, order='ascendi
         "curr_id": id_,
         "smlID": str(randint(1000000, 99999999)),
         "header": header,
-        "interval_sec": interval,
+        "interval_sec": interval.capitalize(),
         "sort_col": "date",
         "sort_ord": "DESC",
         "action": "historical_data"
@@ -324,7 +326,7 @@ def get_currency_cross_recent_data(currency_cross, as_json=False, order='ascendi
             for nested_ in elements_.xpath(".//td"):
                 info.append(nested_.get('data-real-value'))
 
-            currency_cross_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+            currency_cross_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
             
             currency_cross_close = float(info[1].replace(',', ''))
             currency_cross_open = float(info[2].replace(',', ''))
@@ -410,14 +412,15 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
         IndexError: if currency_cross information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_currency_cross_historical_data(currency_cross='EUR/USD', from_date='01/01/2018', to_date='01/01/2019')
-                          Open    High     Low   Close Currency
-            Date
-            2018-01-01  1.2003  1.2014  1.1995  1.2010      USD
-            2018-01-02  1.2013  1.2084  1.2003  1.2059      USD
-            2018-01-03  1.2058  1.2070  1.2001  1.2014      USD
-            2018-01-04  1.2015  1.2090  1.2004  1.2068      USD
-            2018-01-05  1.2068  1.2085  1.2021  1.2030      USD
+        >>> data = investpy.get_currency_cross_historical_data(currency_cross='EUR/USD', from_date='01/01/2018', to_date='01/01/2019')
+        >>> data.head()
+                      Open    High     Low   Close Currency
+        Date
+        2018-01-01  1.2003  1.2014  1.1995  1.2010      USD
+        2018-01-02  1.2013  1.2084  1.2003  1.2059      USD
+        2018-01-03  1.2058  1.2070  1.2001  1.2014      USD
+        2018-01-04  1.2015  1.2090  1.2004  1.2068      USD
+        2018-01-05  1.2068  1.2085  1.2021  1.2030      USD
 
     """
 
@@ -455,7 +458,9 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     date_interval = {
@@ -475,7 +480,7 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
 
             date_interval['intervals'].append(obj)
 
-            start_date = start_date.replace(year=start_date.year + 19, day=start_date.day + 1)
+            start_date = start_date.replace(year=start_date.year + 19) + timedelta(days=1)
         else:
             obj = {
                 'start': start_date.strftime('%m/%d/%Y'),
@@ -501,15 +506,14 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
     if currency_crosses is None:
         raise IOError("ERR#0050: currency_crosses not found or unable to retrieve.")
 
-    currency_cross = currency_cross.strip()
-    currency_cross = currency_cross.lower()
+    currency_cross = unidecode(currency_cross.strip().lower())
 
-    if unidecode(currency_cross) not in [unidecode(value.lower()) for value in currency_crosses['name'].tolist()]:
-        raise RuntimeError("ERR#0054: the introduced currency_cross " + str(currency_cross) + " does not exists.")
+    if currency_cross not in list(currency_crosses['name'].apply(unidecode).str.lower()):
+        raise RuntimeError("ERR#0054: the introduced currency_cross " + str(currency_cross) + " does not exist.")
 
-    id_ = currency_crosses.loc[(currency_crosses['name'].str.lower() == currency_cross).idxmax(), 'id']
-    name = currency_crosses.loc[(currency_crosses['name'].str.lower() == currency_cross).idxmax(), 'name']
-    currency = currency_crosses.loc[(currency_crosses['name'].str.lower() == currency_cross).idxmax(), 'second']
+    id_ = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'id']
+    name = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'name']
+    currency = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'second']
 
     final = list()
 
@@ -524,7 +528,7 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
             "header": header,
             "st_date": date_interval['intervals'][index]['start'],
             "end_date": date_interval['intervals'][index]['end'],
-            "interval_sec": interval,
+            "interval_sec": interval.capitalize(),
             "sort_col": "date",
             "sort_ord": "DESC",
             "action": "historical_data"
@@ -569,7 +573,7 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
                     data_flag = True
 
                 if data_flag is True:
-                    currency_cross_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+                    currency_cross_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
                     
                     currency_cross_close = float(info[1].replace(',', ''))
                     currency_cross_open = float(info[2].replace(',', ''))
@@ -587,13 +591,9 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
                     result = result
 
                 if as_json is True:
-                    json_ = {
-                        'name': name,
-                        'historical':
-                            [value.currency_cross_as_json() for value in result]
-                    }
-
-                    final.append(json_)
+                    json_list = [value.currency_cross_as_json() for value in result]
+                    
+                    final.append(json_list)
                 elif as_json is False:
                     df = pd.DataFrame.from_records([value.currency_cross_to_dict() for value in result])
                     df.set_index('Date', inplace=True)
@@ -602,8 +602,15 @@ def get_currency_cross_historical_data(currency_cross, from_date, to_date, as_js
         else:
             raise RuntimeError("ERR#0004: data retrieval error while scraping.")
 
+    if order in ['descending', 'desc']:
+        final.reverse()
+
     if as_json is True:
-        return json.dumps(final[0], sort_keys=False)
+        json_ = {
+            'name': name,
+            'historical': [value for json_list in final for value in json_list]
+        }
+        return json.dumps(json_, sort_keys=False)
     elif as_json is False:
         return pd.concat(final)
 
@@ -659,21 +666,20 @@ def get_currency_cross_information(currency_cross, as_json=False):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'currency_crosses.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        crosses = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        currency_crosses = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
     else:
         raise FileNotFoundError("ERR#0060: currency_crosses file not found or errored.")
 
-    if crosses is None:
+    if currency_crosses is None:
         raise IOError("ERR#0050: currency_crosses not found or unable to retrieve.")
 
-    currency_cross = currency_cross.strip()
-    currency_cross = currency_cross.lower()
+    currency_cross = unidecode(currency_cross.strip().lower())
 
-    if unidecode(currency_cross) not in [unidecode(value.lower()) for value in crosses['name'].tolist()]:
-        raise RuntimeError("ERR#0054: the introduced currency_cross " + str(currency_cross) + " does not exists.")
+    if currency_cross not in list(currency_crosses['name'].apply(unidecode).str.lower()):
+        raise RuntimeError("ERR#0054: the introduced currency_cross " + str(currency_cross) + " does not exist.")
 
-    name = crosses.loc[(crosses['name'].str.lower() == currency_cross).idxmax(), 'name']
-    tag = crosses.loc[(crosses['name'].str.lower() == currency_cross).idxmax(), 'tag']
+    name = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'name']
+    tag = currency_crosses.loc[(currency_crosses['name'].apply(unidecode).str.lower() == currency_cross).idxmax(), 'tag']
 
     url = "https://www.investing.com/currencies/" + tag
 
@@ -792,9 +798,9 @@ def get_currency_crosses_overview(currency, as_json=False, n_results=100):
     if 1 > n_results or n_results > 1000:
         raise ValueError("ERR#0089: n_results argument should be an integer between 1 and 1000.")
 
-    currency = unidecode(currency.lower())
+    currency = unidecode(currency.strip().lower())
 
-    if currency not in [curr.strip().lower() for curr in list(cst.CURRENCIES.keys())]:
+    if currency not in [value.lower() for value in list(cst.CURRENCIES.keys())]:
         raise ValueError("ERR#0106: specified currency value not valid.")
 
     session_id = ''.join(sample(string.ascii_lowercase, 9))

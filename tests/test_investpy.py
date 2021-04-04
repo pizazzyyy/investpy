@@ -1,4 +1,4 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
 
 import pytest
@@ -158,6 +158,11 @@ def test_investpy_stocks():
             'country': 'ivory coast',
             'as_json': False,
             'n_results': 50
+        },
+        {
+            'country': 'indonesia',
+            'as_json': False,
+            'n_results': 362
         }
     ]
 
@@ -299,13 +304,13 @@ def test_investpy_funds():
         {
             'fund': 'bbva multiactivo conservador pp',
             'country': 'spain',
-            'as_json': True,
+            'as_json': False
         },
         {
-            'fund': 'bbva multiactivo conservador pp',
-            'country': 'spain',
-            'as_json': False,
-        },
+            'fund': 'öhman Global Growth',
+            'country': 'sweden',
+            'as_json': True
+        }
     ]
 
     for param in params:
@@ -694,6 +699,20 @@ def test_investpy_currency_crosses():
             'as_json': False,
             'order': 'descending',
         },
+        {
+            'currency_cross': 'XAG/USD',
+            'from_date': '01/01/2010',
+            'to_date': '01/01/2015',
+            'as_json': False,
+            'order': 'descending',
+        },
+        {
+            'currency_cross': 'XAU/USD',
+            'from_date': '01/01/2010',
+            'to_date': '01/01/2015',
+            'as_json': False,
+            'order': 'descending',
+        }
     ]
 
     for param in params:
@@ -716,6 +735,14 @@ def test_investpy_currency_crosses():
         },
         {
             'currency_cross': 'EUR/USD',
+            'as_json': True
+        },
+        {
+            'currency_cross': 'XAU/USD',
+            'as_json': True
+        },
+        {
+            'currency_cross': 'XAG/USD',
             'as_json': True
         }
     ]
@@ -1167,13 +1194,13 @@ def test_investpy_certificates():
     ]
 
     for param in params:
-        investpy.get_certificate_recent_data(certificate='SG ZT CAC 40 x7 Short 31Dec99',
+        investpy.get_certificate_recent_data(certificate='BNP Gold 31Dec99',
                                              country='france',
                                              as_json=param['as_json'],
                                              order=param['order'],
                                              interval='Daily')
 
-        investpy.get_certificate_historical_data(certificate='SG ZT CAC 40 x7 Short 31Dec99',
+        investpy.get_certificate_historical_data(certificate='BNP Gold 31Dec99',
                                                  country='france',
                                                  from_date='01/01/1990',
                                                  to_date='01/01/2019',
@@ -1183,12 +1210,12 @@ def test_investpy_certificates():
 
     params = [
         {
-            'certificate': 'SG ZT CAC 40 x7 Short 31Dec99',
+            'certificate': 'BNP Gold 31Dec99',
             'country': 'france',
             'as_json': False
         },
         {
-            'certificate': 'SG ZT CAC 40 x7 Short 31Dec99',
+            'certificate': 'BNP Gold 31Dec99',
             'country': 'france',
             'as_json': True
         }
@@ -1217,7 +1244,7 @@ def test_investpy_certificates():
                                            as_json=param['as_json'],
                                            n_results=param['n_results'])
 
-    investpy.search_certificates(by='name', value='COMMERZBANK')
+    investpy.search_certificates(by='name', value='BNP')
 
 
 def test_investpy_search():
@@ -1255,6 +1282,12 @@ def test_investpy_search():
             'products': ['stocks'],
             'countries': ['united states'],
             'n_results': 1
+        },
+        {
+            'text': 'apple',
+            'products': ['stocks'],
+            'countries': ['united states'],
+            'n_results': 5
         }
     ]
 
@@ -1275,12 +1308,16 @@ def test_investpy_search():
             },
         ]
 
-        for result in results:
-            print(result)
-            result.retrieve_recent_data()
-            for date in dates:
-                result.retrieve_historical_data(from_date=date['from_date'], to_date=date['to_date'])
-            break
+        if isinstance(results, list):
+            result = results[0]
+        else:
+            result = results
+
+        print(result)
+
+        result.retrieve_recent_data()
+        for date in dates:
+            result.retrieve_historical_data(from_date=date['from_date'], to_date=date['to_date'])
 
 
 def test_investpy_news():
@@ -1310,13 +1347,13 @@ def test_investpy_news():
     ]
 
     for param in params:
-        investpy.get_calendar(time_zone=param['time_zone'],
-                              time_filter=param['time_filter'],
-                              countries=param['countries'],
-                              importances=param['importances'],
-                              categories=param['categories'],
-                              from_date=param['from_date'],
-                              to_date=param['to_date'])
+        investpy.economic_calendar(time_zone=param['time_zone'],
+                                   time_filter=param['time_filter'],
+                                   countries=param['countries'],
+                                   importances=param['importances'],
+                                   categories=param['categories'],
+                                   from_date=param['from_date'],
+                                   to_date=param['to_date'])
 
 
 def test_investpy_technical():
@@ -1324,20 +1361,15 @@ def test_investpy_technical():
     This function checks that investpy news retrieval functionality works as expected.
     """
 
-    params = [
-        {
+    params = list()
+
+    for interval in list(investpy.utils.constant.INTERVAL_FILTERS.keys()):
+        params.append({
             'name': 'bbva',
             'country': 'spain',
             'product_type': 'stock',
-            'interval': 'weekly',
-        },
-        {
-            'name': 'bbva mi inversion rf mixta fi',
-            'country': 'spain',
-            'product_type': 'fund',
-            'interval': 'daily',
-        },
-    ]
+            'interval': interval
+        })
 
     for param in params:
         investpy.technical_indicators(name=param['name'],

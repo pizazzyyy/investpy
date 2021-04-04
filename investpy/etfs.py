@@ -1,7 +1,7 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pytz
 
 import json
@@ -15,7 +15,7 @@ import requests
 from unidecode import unidecode
 from lxml.html import fromstring
 
-from .utils.aux import random_user_agent
+from .utils.extra import random_user_agent
 from .utils.data import Data
 
 from .data.etfs_data import etfs_as_df, etfs_as_list, etfs_as_dict
@@ -212,14 +212,15 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
         IndexError: raised if etf information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_etf_recent_data(etf='bbva accion dj eurostoxx 50', country='spain')
-                          Open    High    Low   Close  Volume Currency Exchange
-            Date                                                               
-            2020-04-09  28.890  29.155  28.40  28.945   20651      EUR   Madrid
-            2020-04-14  29.345  30.235  28.94  29.280   14709      EUR   Madrid
-            2020-04-15  29.125  29.125  28.11  28.130   14344      EUR   Madrid
-            2020-04-16  28.505  28.590  28.08  28.225   17662      EUR   Madrid
-            2020-04-17  29.000  29.325  28.80  28.895   19578      EUR   Madrid
+        >>> data = investpy.get_etf_recent_data(etf='bbva accion dj eurostoxx 50', country='spain')
+        >>> data.head()
+                      Open    High    Low   Close  Volume Currency Exchange
+        Date                                                               
+        2020-04-09  28.890  29.155  28.40  28.945   20651      EUR   Madrid
+        2020-04-14  29.345  30.235  28.94  29.280   14709      EUR   Madrid
+        2020-04-15  29.125  29.125  28.11  28.130   14344      EUR   Madrid
+        2020-04-16  28.505  28.590  28.08  28.225   17662      EUR   Madrid
+        2020-04-17  29.000  29.325  28.80  28.895   19578      EUR   Madrid
 
     """
 
@@ -250,7 +251,9 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     resource_package = 'investpy'
@@ -270,14 +273,14 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
 
     etf = unidecode(etf.strip().lower())
 
-    def_exchange = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['def_stock_exchange'] == True)).idxmax()]
+    def_exchange = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['def_stock_exchange'] == True)).idxmax()]
     
     etfs = etfs[etfs['country'].str.lower() == country]
 
-    if etf not in [value for value in etfs['name'].str.lower()]:
+    if etf not in list(etfs['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0019: etf " + etf + " not found, check if it is correct.")
 
-    etfs = etfs[etfs['name'].str.lower() == etf]
+    etfs = etfs[etfs['name'].apply(unidecode).str.lower() == etf]
 
     if def_exchange['country'] != country:
         warnings.warn(
@@ -288,12 +291,12 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
         )
         
         if stock_exchange:
-            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower().tolist():
+            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower():
                 raise ValueError("ERR#0126: introduced stock_exchange value does not exists, leave this parameter to None to use default stock_exchange.")
             
             etf_exchange = etfs.loc[(etfs['stock_exchange'].str.lower() == stock_exchange.lower()).idxmax(), 'stock_exchange']
         else:
-            found_etfs = etfs[etfs['name'].str.lower() == etf]
+            found_etfs = etfs[etfs['name'].apply(unidecode).str.lower() == etf]
     
             if len(found_etfs) > 1:
                 warnings.warn(
@@ -304,10 +307,10 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
 
             del found_etfs
 
-            etf_exchange = etfs.loc[(etfs['name'].str.lower() == etf).idxmax(), 'stock_exchange']
+            etf_exchange = etfs.loc[(etfs['name'].apply(unidecode).str.lower() == etf).idxmax(), 'stock_exchange']
     else:
         if stock_exchange:
-            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower().tolist():
+            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower():
                 raise ValueError("ERR#0126: introduced stock_exchange value does not exists, leave this parameter to None to use default stock_exchange.")
 
             if def_exchange['stock_exchange'].lower() != stock_exchange.lower():
@@ -322,11 +325,11 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
         else:
             etf_exchange = def_exchange['stock_exchange']
 
-    symbol = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'symbol']
-    id_ = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'id']
-    name = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'name']
+    symbol = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'symbol']
+    id_ = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'id']
+    name = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'name']
 
-    etf_currency = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'currency']
+    etf_currency = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'currency']
 
     header = symbol + ' Historical Data'
 
@@ -342,7 +345,7 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
         "curr_id": id_,
         "smlID": str(randint(1000000, 99999999)),
         "header": header,
-        "interval_sec": interval,
+        "interval_sec": interval.capitalize(),
         "sort_col": "date",
         "sort_ord": "DESC",
         "action": "historical_data"
@@ -370,7 +373,7 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
             for nested_ in elements_.xpath(".//td"):
                 info.append(nested_.get('data-real-value'))
 
-            etf_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+            etf_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
 
             etf_close = float(info[1].replace(',', ''))
             etf_open = float(info[2].replace(',', ''))
@@ -406,7 +409,7 @@ def get_etf_recent_data(etf, country, stock_exchange=None, as_json=False, order=
 
 def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=None, as_json=False, order='ascending', interval='Daily'):
     """
-    This function retrieves historical data from the introduced `etf` from Investing via Web Scraping on the 
+    This function retrieves historical data from the introduced `etf` from Investing.com via Web Scraping on the 
     introduced date range. The resulting data can it either be stored in a :obj:`pandas.DataFrame` or in a 
     :obj:`json` object with `ascending` or `descending` order.
 
@@ -461,14 +464,15 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
         IndexError: raised if etf information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_etf_historical_data(etf='bbva accion dj eurostoxx 50', country='spain', from_date='01/01/2010', to_date='01/01/2019')
-                         Open   High    Low  Close  Volume Currency Exchange
-            Date                                                            
-            2011-12-07  23.70  23.70  23.70  23.62    2000      EUR   Madrid
-            2011-12-08  23.53  23.60  23.15  23.04     599      EUR   Madrid
-            2011-12-09  23.36  23.60  23.36  23.62    2379      EUR   Madrid
-            2011-12-12  23.15  23.26  23.00  22.88   10695      EUR   Madrid
-            2011-12-13  22.88  22.88  22.88  22.80      15      EUR   Madrid
+        >>> data = investpy.get_etf_historical_data(etf='bbva accion dj eurostoxx 50', country='spain', from_date='01/01/2010', to_date='01/01/2019')
+        >>> data.head()
+                     Open   High    Low  Close  Volume Currency Exchange
+        Date                                                            
+        2011-12-07  23.70  23.70  23.70  23.62    2000      EUR   Madrid
+        2011-12-08  23.53  23.60  23.15  23.04     599      EUR   Madrid
+        2011-12-09  23.36  23.60  23.36  23.62    2379      EUR   Madrid
+        2011-12-12  23.15  23.26  23.00  22.88   10695      EUR   Madrid
+        2011-12-13  22.88  22.88  22.88  22.80      15      EUR   Madrid
 
     """
 
@@ -499,7 +503,9 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     try:
@@ -535,7 +541,7 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
 
             date_interval['intervals'].append(obj)
 
-            start_date = start_date.replace(year=start_date.year + 19, day=start_date.day + 1)
+            start_date = start_date.replace(year=start_date.year + 19) + timedelta(days=1)
         else:
             obj = {
                 'start': start_date.strftime('%m/%d/%Y'),
@@ -568,14 +574,14 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
 
     etf = unidecode(etf.strip().lower())
 
-    def_exchange = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['def_stock_exchange'] == True)).idxmax()]
+    def_exchange = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['def_stock_exchange'] == True)).idxmax()]
     
     etfs = etfs[etfs['country'].str.lower() == country]
 
-    if etf not in [value for value in etfs['name'].str.lower()]:
+    if etf not in list(etfs['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0019: etf " + etf + " not found, check if it is correct.")
 
-    etfs = etfs[etfs['name'].str.lower() == etf]
+    etfs = etfs[etfs['name'].apply(unidecode).str.lower() == etf]
 
     if def_exchange['country'] != country:
         warnings.warn(
@@ -586,12 +592,12 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
         )
         
         if stock_exchange:
-            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower().tolist():
+            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower():
                 raise ValueError("ERR#0126: introduced stock_exchange value does not exists, leave this parameter to None to use default stock_exchange.")
             
             etf_exchange = etfs.loc[(etfs['stock_exchange'].str.lower() == stock_exchange.lower()).idxmax(), 'stock_exchange']
         else:
-            found_etfs = etfs[etfs['name'].str.lower() == etf]
+            found_etfs = etfs[etfs['name'].apply(unidecode).str.lower() == etf]
     
             if len(found_etfs) > 1:
                 warnings.warn(
@@ -602,10 +608,10 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
 
             del found_etfs
 
-            etf_exchange = etfs.loc[(etfs['name'].str.lower() == etf).idxmax(), 'stock_exchange']
+            etf_exchange = etfs.loc[(etfs['name'].apply(unidecode).str.lower() == etf).idxmax(), 'stock_exchange']
     else:
         if stock_exchange:
-            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower().tolist():
+            if stock_exchange.lower() not in etfs['stock_exchange'].str.lower():
                 raise ValueError("ERR#0126: introduced stock_exchange value does not exists, leave this parameter to None to use default stock_exchange.")
 
             if def_exchange['stock_exchange'].lower() != stock_exchange.lower():
@@ -620,11 +626,11 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
         else:
             etf_exchange = def_exchange['stock_exchange']
 
-    symbol = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'symbol']
-    id_ = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'id']
-    name = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'name']
+    symbol = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'symbol']
+    id_ = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'id']
+    name = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'name']
 
-    etf_currency = etfs.loc[((etfs['name'].str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'currency']
+    etf_currency = etfs.loc[((etfs['name'].apply(unidecode).str.lower() == etf) & (etfs['stock_exchange'].str.lower() == etf_exchange.lower())).idxmax(), 'currency']
 
     final = list()
 
@@ -639,7 +645,7 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
             "header": header,
             "st_date": date_interval['intervals'][index]['start'],
             "end_date": date_interval['intervals'][index]['end'],
-            "interval_sec": interval,
+            "interval_sec": interval.capitalize(),
             "sort_col": "date",
             "sort_ord": "DESC",
             "action": "historical_data"
@@ -684,7 +690,7 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
                     info.append(nested_.get('data-real-value'))
 
                 if data_flag is True:
-                    etf_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+                    etf_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
                     
                     etf_close = float(info[1].replace(',', ''))
                     etf_open = float(info[2].replace(',', ''))
@@ -703,12 +709,9 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
                     result = result
 
                 if as_json is True:
-                    json_ = {'name': name,
-                             'historical':
-                                 [value.etf_as_json() for value in result]
-                             }
+                    json_list = [value.etf_as_json() for value in result]
 
-                    final.append(json_)
+                    final.append(json_list)
                 elif as_json is False:
                     df = pd.DataFrame.from_records([value.etf_to_dict() for value in result])
                     df.set_index('Date', inplace=True)
@@ -717,8 +720,15 @@ def get_etf_historical_data(etf, country, from_date, to_date, stock_exchange=Non
         else:
             raise RuntimeError("ERR#0004: data retrieval error while scraping.")
 
+    if order in ['descending', 'desc']:
+        final.reverse()
+
     if as_json is True:
-        return json.dumps(final[0], sort_keys=False)
+        json_ = {
+            'name': name,
+            'historical': [value for json_list in final for value in json_list]
+        }
+        return json.dumps(json_, sort_keys=False)
     elif as_json is False:
         return pd.concat(final)
 
@@ -796,21 +806,20 @@ def get_etf_information(etf, country, as_json=False):
     if etfs is None:
         raise IOError("ERR#0009: etfs object not found or unable to retrieve.")
 
-    country = unidecode(country.lower())
+    country = unidecode(country.strip().lower())
 
     if country not in get_etf_countries():
         raise RuntimeError("ERR#0034: country " + country + " not found, check if it is correct.")
 
     etfs = etfs[etfs['country'] == country]
 
-    etf = etf.strip()
-    etf = etf.lower()
+    etf = unidecode(etf.strip().lower())
 
-    if unidecode(etf) not in [unidecode(value.lower()) for value in etfs['name'].tolist()]:
-        raise RuntimeError("ERR#0019: etf " + str(etf) + " not found in " + str(country.lower()) + ", check if it is correct.")
+    if etf not in list(etfs['name'].apply(unidecode).str.lower()):
+        raise RuntimeError("ERR#0019: etf " + etf + " not found, check if it is correct.")
 
-    name = etfs.loc[(etfs['name'].str.lower() == etf).idxmax(), 'name']
-    tag = etfs.loc[(etfs['name'].str.lower() == etf).idxmax(), 'tag']
+    name = etfs.loc[(etfs['name'].apply(unidecode).str.lower() == etf).idxmax(), 'name']
+    tag = etfs.loc[(etfs['name'].apply(unidecode).str.lower() == etf).idxmax(), 'tag']
 
     url = "https://www.investing.com/etfs/" + tag
 
@@ -942,7 +951,7 @@ def get_etfs_overview(country, as_json=False, n_results=100):
     if etfs is None:
         raise IOError("ERR#0009: etfs object not found or unable to retrieve.")
 
-    country = unidecode(country.lower())
+    country = unidecode(country.strip().lower())
 
     if country not in get_etf_countries():
         raise RuntimeError('ERR#0025: specified country value is not valid.')

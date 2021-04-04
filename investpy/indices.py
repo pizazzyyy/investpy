@@ -1,7 +1,7 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pytz
 
 import json
@@ -13,7 +13,7 @@ import requests
 from unidecode import unidecode
 from lxml.html import fromstring
 
-from .utils.aux import random_user_agent
+from .utils.extra import random_user_agent
 from .utils.data import Data
 
 from .data.indices_data import indices_as_df, indices_as_list, indices_as_dict
@@ -198,14 +198,15 @@ def get_index_recent_data(index, country, as_json=False, order='ascending', inte
         IndexError: raised if index information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_index_recent_data(index='ibex 35', country='spain')
-                           Open     High      Low    Close   Volume Currency
-            Date
-            2019-08-26  12604.7  12646.3  12510.4  12621.3  4770000      EUR
-            2019-08-27  12618.3  12723.3  12593.6  12683.8  8230000      EUR
-            2019-08-28  12657.2  12697.2  12585.1  12642.5  7300000      EUR
-            2019-08-29  12637.2  12806.6  12633.8  12806.6  5650000      EUR
-            2019-08-30  12767.6  12905.9  12756.9  12821.6  6040000      EUR
+        >>> data = investpy.get_index_recent_data(index='ibex 35', country='spain')
+        >>> data.head()
+                       Open     High      Low    Close   Volume Currency
+        Date
+        2019-08-26  12604.7  12646.3  12510.4  12621.3  4770000      EUR
+        2019-08-27  12618.3  12723.3  12593.6  12683.8  8230000      EUR
+        2019-08-28  12657.2  12697.2  12585.1  12642.5  7300000      EUR
+        2019-08-29  12637.2  12806.6  12633.8  12806.6  5650000      EUR
+        2019-08-30  12767.6  12905.9  12756.9  12821.6  6040000      EUR
 
     """
 
@@ -233,7 +234,9 @@ def get_index_recent_data(index, country, as_json=False, order='ascending', inte
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     resource_package = 'investpy'
@@ -246,22 +249,23 @@ def get_index_recent_data(index, country, as_json=False, order='ascending', inte
     if indices is None:
         raise IOError("ERR#0037: indices not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_index_countries():
-        raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
+    country = unidecode(country.strip().lower())
 
-    indices = indices[indices['country'] == unidecode(country.lower())]
+    if country not in get_index_countries():
+        raise RuntimeError("ERR#0034: country " + country + " not found, check if it is correct.")
 
-    index = index.strip()
-    index = index.lower()
+    indices = indices[indices['country'] == country]
 
-    if unidecode(index) not in [unidecode(value.lower()) for value in indices['name'].tolist()]:
+    index = unidecode(index.strip().lower())
+
+    if index not in list(indices['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0045: index " + index + " not found, check if it is correct.")
 
-    full_name = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'full_name']
-    id_ = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'id']
-    name = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'name']
+    full_name = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'full_name']
+    id_ = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'id']
+    name = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'name']
 
-    index_currency = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'currency']
+    index_currency = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'currency']
 
     header = full_name + ' Historical Data'
 
@@ -269,7 +273,7 @@ def get_index_recent_data(index, country, as_json=False, order='ascending', inte
         "curr_id": id_,
         "smlID": str(randint(1000000, 99999999)),
         "header": header,
-        "interval_sec": interval,
+        "interval_sec": interval.capitalize(),
         "sort_col": "date",
         "sort_ord": "DESC",
         "action": "historical_data"
@@ -305,7 +309,7 @@ def get_index_recent_data(index, country, as_json=False, order='ascending', inte
             for nested_ in elements_.xpath(".//td"):
                 info.append(nested_.get('data-real-value'))
 
-            index_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+            index_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
             
             index_close = float(info[1].replace(',', ''))
             index_open = float(info[2].replace(',', ''))
@@ -323,10 +327,11 @@ def get_index_recent_data(index, country, as_json=False, order='ascending', inte
             result = result
 
         if as_json is True:
-            json_ = {'name': name,
-                     'recent':
-                         [value.index_as_json() for value in result]
-                     }
+            json_ = {
+                'name': name,
+                'recent':
+                    [value.index_as_json() for value in result]
+            }
 
             return json.dumps(json_, sort_keys=False)
         elif as_json is False:
@@ -395,14 +400,15 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
         IndexError: raised if index information was unavailable or not found.
 
     Examples:
-        >>> investpy.get_index_historical_data(index='ibex 35', country='spain', from_date='01/01/2018', to_date='01/01/2019')
-                           Open     High      Low    Close    Volume Currency
-            Date
-            2018-01-02  15128.2  15136.7  14996.6  15096.8  10340000      EUR
-            2018-01-03  15145.0  15186.9  15091.9  15106.9  12800000      EUR
-            2018-01-04  15105.5  15368.7  15103.7  15368.7  17070000      EUR
-            2018-01-05  15353.9  15407.5  15348.6  15398.9  11180000      EUR
-            2018-01-08  15437.1  15448.7  15344.0  15373.3  12890000      EUR
+        >>> data = investpy.get_index_historical_data(index='ibex 35', country='spain', from_date='01/01/2018', to_date='01/01/2019')
+        >>> data.head()
+                       Open     High      Low    Close    Volume Currency
+        Date
+        2018-01-02  15128.2  15136.7  14996.6  15096.8  10340000      EUR
+        2018-01-03  15145.0  15186.9  15091.9  15106.9  12800000      EUR
+        2018-01-04  15105.5  15368.7  15103.7  15368.7  17070000      EUR
+        2018-01-05  15353.9  15407.5  15348.6  15398.9  11180000      EUR
+        2018-01-08  15437.1  15448.7  15344.0  15373.3  12890000      EUR
 
     """
 
@@ -446,7 +452,9 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
     if not isinstance(interval, str):
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
-    if interval not in ['Daily', 'Weekly', 'Monthly']:
+    interval = interval.lower()
+
+    if interval not in ['daily', 'weekly', 'monthly']:
         raise ValueError("ERR#0073: interval value should be a str type and it can just be either 'Daily', 'Weekly' or 'Monthly'.")
 
     date_interval = {
@@ -466,7 +474,7 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
 
             date_interval['intervals'].append(obj)
 
-            start_date = start_date.replace(year=start_date.year + 19, day=start_date.day + 1)
+            start_date = start_date.replace(year=start_date.year + 19) + timedelta(days=1)
         else:
             obj = {
                 'start': start_date.strftime('%m/%d/%Y'),
@@ -492,22 +500,23 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
     if indices is None:
         raise IOError("ERR#0037: indices not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_index_countries():
-        raise RuntimeError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
+    country = unidecode(country.strip().lower())
 
-    indices = indices[indices['country'] == unidecode(country.lower())]
+    if country not in get_index_countries():
+        raise RuntimeError("ERR#0034: country " + country + " not found, check if it is correct.")
 
-    index = index.strip()
-    index = index.lower()
+    indices = indices[indices['country'] == country]
 
-    if unidecode(index) not in [unidecode(value.lower()) for value in indices['name'].tolist()]:
+    index = unidecode(index.strip().lower())
+
+    if index not in list(indices['name'].apply(unidecode).str.lower()):
         raise RuntimeError("ERR#0045: index " + index + " not found, check if it is correct.")
 
-    full_name = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'full_name']
-    id_ = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'id']
-    name = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'name']
+    full_name = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'full_name']
+    id_ = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'id']
+    name = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'name']
 
-    index_currency = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'currency']
+    index_currency = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'currency']
 
     final = list()
 
@@ -522,7 +531,7 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
             "header": header,
             "st_date": date_interval['intervals'][index]['start'],
             "end_date": date_interval['intervals'][index]['end'],
-            "interval_sec": interval,
+            "interval_sec": interval.capitalize(),
             "sort_col": "date",
             "sort_ord": "DESC",
             "action": "historical_data"
@@ -567,7 +576,7 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
                     info.append(nested_.get('data-real-value'))
 
                 if data_flag is True:
-                    index_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.utc).date()), '%Y-%m-%d')
+                    index_date = datetime.strptime(str(datetime.fromtimestamp(int(info[0]), tz=pytz.timezone('GMT')).date()), '%Y-%m-%d')
                     
                     index_close = float(info[1].replace(',', ''))
                     index_open = float(info[2].replace(',', ''))
@@ -585,12 +594,9 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
                     result = result
 
                 if as_json is True:
-                    json_ = {'name': name,
-                             'historical':
-                                 [value.index_as_json() for value in result]
-                             }
-
-                    final.append(json_)
+                    json_list = [value.index_as_json() for value in result]
+                    
+                    final.append(json_list)
                 elif as_json is False:
                     df = pd.DataFrame.from_records([value.index_to_dict() for value in result])
                     df.set_index('Date', inplace=True)
@@ -599,8 +605,15 @@ def get_index_historical_data(index, country, from_date, to_date, as_json=False,
         else:
             raise RuntimeError("ERR#0004: data retrieval error while scraping.")
 
+    if order in ['descending', 'desc']:
+        final.reverse()
+
     if as_json is True:
-        return json.dumps(final[0], sort_keys=False)
+        json_ = {
+            'name': name,
+            'historical': [value for json_list in final for value in json_list]
+        }
+        return json.dumps(json_, sort_keys=False)
     elif as_json is False:
         return pd.concat(final)
 
@@ -670,19 +683,20 @@ def get_index_information(index, country, as_json=False):
     if indices is None:
         raise IOError("ERR#0037: indices not found or unable to retrieve.")
 
-    if unidecode(country.lower()) not in get_index_countries():
-        raise ValueError("ERR#0034: country " + country.lower() + " not found, check if it is correct.")
+    country = unidecode(country.strip().lower())
 
-    indices = indices[indices['country'] == unidecode(country.lower())]
+    if country not in get_index_countries():
+        raise RuntimeError("ERR#0034: country " + country + " not found, check if it is correct.")
 
-    index = index.strip()
-    index = index.lower()
+    indices = indices[indices['country'] == country]
 
-    if unidecode(index) not in [unidecode(value.lower()) for value in indices['name'].tolist()]:
-        raise ValueError("ERR#0045: index " + index + " not found, check if it is correct.")
+    index = unidecode(index.strip().lower())
 
-    name = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'name']
-    tag = indices.loc[(indices['name'].str.lower() == index).idxmax(), 'tag']
+    if index not in list(indices['name'].apply(unidecode).str.lower()):
+        raise RuntimeError("ERR#0045: index " + index + " not found, check if it is correct.")
+
+    name = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'name']
+    tag = indices.loc[(indices['name'].apply(unidecode).str.lower() == index).idxmax(), 'tag']
 
     url = "https://www.investing.com/indices/" + tag
 
@@ -811,7 +825,7 @@ def get_indices_overview(country, as_json=False, n_results=100):
     if indices is None:
         raise IOError("ERR#0037: indices not found or unable to retrieve.")
 
-    country = unidecode(country.lower())
+    country = unidecode(country.strip().lower())
 
     if country not in get_index_countries():
         raise ValueError("ERR#0034: country " + country + " not found, check if it is correct.")

@@ -1,6 +1,5 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
-
 
 FINANCIAL_SUMMARY_TYPES = {
     'income_statement': 0,
@@ -135,7 +134,7 @@ TIME_FILTERS = {
 TIMEZONES = {
     'GMT -11:00': [2, 35], 'GMT -10:00': [3], 'GMT -9:00': [4], 'GMT -8:00': [36, 5], 'GMT -7:00': [37, 38, 6], 
     'GMT -6:00': [39, 7, 40, 41], 'GMT -5:00': [42, 8, 43], 'GMT -4:00': [10, 9, 45, 46], 
-    'GMT -3:30': [11], 'GMT -3:00': [44, 12, 48, 49, 50, 51, 47], 'GMT -1:00': [14, 53], 'GMT': [55, 15, 56],
+    'GMT -3:30': [11], 'GMT -3:00': [44, 12, 48, 49, 50, 51, 47], 'GMT -1:00': [14, 53], 'GMT': [15, 56],
     'GMT +1:00': [16, 57, 58, 54, 166, 59, 60], 'GMT +2:00': [62, 64, 65, 66, 68, 17, 67, 61], 'GMT +3:00': [71, 63, 70, 18, 72], 
     'GMT +3:30': [19], 'GMT +4:00': [20, 73], 'GMT +4:30': [21], 'GMT +5:00': [22, 77], 'GMT +5:30': [23, 79], 'GMT +5:45': [24], 
     'GMT +6:00': [25], 'GMT +6:30': [26], 'GMT +7:00': [27], 'GMT +8:00': [178, 28, 113], 'GMT +9:00': [29, 88], 'GMT +9:30': [90], 
@@ -149,11 +148,12 @@ PRODUCT_TYPE_FILES = {
     'etf': 'etfs.csv',
     'fund': 'funds.csv',
     'index': 'indices.csv',
-    'stock': 'stocks/stocks.csv',
+    'stock': 'stocks.csv',
     'bond': 'bonds.csv'
 }
 
 INTERVAL_FILTERS = {
+    '1min': 60,
     '5mins': 60*5,
     '15mins': 60*15,
     '30mins': 60*30,
@@ -310,7 +310,8 @@ ETF_COUNTRIES = [
     {'country': 'peru', 'code': 'pe'}, {'country': 'poland', 'code': 'pl'}, {'country': 'portugal', 'code': 'pt'}, {'country': 'qatar', 'code': 'qa'}, {'country': 'romania', 'code': 'ro'},
     {'country': 'russia', 'code': 'ru'}, {'country': 'saudi arabia', 'code': 'sa'}, {'country': 'singapore', 'code': 'sg'}, {'country': 'south africa', 'code': 'sa'}, {'country': 'south korea', 'code': 'kr'},
     {'country': 'spain', 'code': 'es'}, {'country': 'sweden', 'code': 'se'}, {'country': 'switzerland', 'code': 'ch'}, {'country': 'taiwan', 'code': 'tw'}, {'country': 'thailand', 'code': 'th'},
-    {'country': 'turkey', 'code': 'tr'}, {'country': 'united kingdom', 'code': 'uk'}, {'country': 'united states', 'code': 'us'}, {'country': 'vietnam', 'code': 'vn'}
+    {'country': 'turkey', 'code': 'tr'}, {'country': 'united kingdom', 'code': 'uk'}, {'country': 'united states', 'code': 'us'}, {'country': 'vietnam', 'code': 'vn'},
+    {'country': 'euro zone', 'code': ''}
 ]
 
 FUND_COUNTRIES = [
@@ -376,5 +377,6 @@ INDEX_COUNTRIES = [
     {'country': 'tunisia', 'country_name': 'tunisia'}, {'country': 'turkey', 'country_name': 'turkey'}, {'country': 'uganda', 'country_name': 'uganda'},
     {'country': 'ukraine', 'country_name': 'ukraine'}, {'country': 'dubai', 'country_name': 'dubai'}, {'country': 'uk', 'country_name': 'united kingdom'},
     {'country': 'usa', 'country_name': 'united states'}, {'country': 'venezuela', 'country_name': 'venezuela'}, {'country': 'vietnam', 'country_name': 'vietnam'},
-    {'country': 'zambia', 'country_name': 'zambia'}, {'country': 'zimbabwe', 'country_name': 'zimbabwe'}
+    {'country': 'world', 'country_name': 'world'}, {'country': 'zambia', 'country_name': 'zambia'}, {'country': 'zimbabwe', 'country_name': 'zimbabwe'},
+    {'country': 'euro zone', 'country_name': 'euro zone'}
 ]

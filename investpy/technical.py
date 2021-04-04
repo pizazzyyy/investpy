@@ -1,4 +1,4 @@
-# Copyright 2018-2020 Alvaro Bartolome, alvarobartt @ GitHub
+# Copyright 2018-2021 Alvaro Bartolome, alvarobartt @ GitHub
 # See LICENSE for details.
 
 import pandas as pd
@@ -10,7 +10,7 @@ import requests
 from lxml.html import fromstring
 
 from .utils import constant as cst
-from .utils.aux import random_user_agent, resource_to_data
+from .utils.extra import random_user_agent, resource_to_data
 
 
 def technical_indicators(name, country, product_type, interval='daily'):
@@ -51,20 +51,21 @@ def technical_indicators(name, country, product_type, interval='daily'):
         ConnectionError: raised if the connection to Investing.com errored or could not be established. 
 
     Examples:
-        >>> investpy.technical_indicators(name='bbva', country='spain', product_type='stock', interval='daily')
-                technical_indicator    value           signal
-            0               RSI(14)  39.1500             sell
-            1            STOCH(9,6)  33.2340             sell
-            2          STOCHRSI(14)  67.7390              buy
-            3           MACD(12,26)  -0.0740             sell
-            4               ADX(14)  55.1150             sell
-            5           Williams %R -66.6670             sell
-            6               CCI(14) -77.1409             sell
-            7               ATR(14)   0.0939  less_volatility
-            8        Highs/Lows(14)  -0.0199             sell
-            9   Ultimate Oscillator  43.0010             sell
-            10                  ROC  -6.6240             sell
-            11  Bull/Bear Power(13)  -0.1590             sell
+        >>> data = investpy.technical_indicators(name='bbva', country='spain', product_type='stock', interval='daily')
+        >>> data.head()
+            technical_indicator    value           signal
+        0               RSI(14)  39.1500             sell
+        1            STOCH(9,6)  33.2340             sell
+        2          STOCHRSI(14)  67.7390              buy
+        3           MACD(12,26)  -0.0740             sell
+        4               ADX(14)  55.1150             sell
+        5           Williams %R -66.6670             sell
+        6               CCI(14) -77.1409             sell
+        7               ATR(14)   0.0939  less_volatility
+        8        Highs/Lows(14)  -0.0199             sell
+        9   Ultimate Oscillator  43.0010             sell
+        10                  ROC  -6.6240             sell
+        11  Bull/Bear Power(13)  -0.1590             sell
 
     """
 
@@ -104,7 +105,7 @@ def technical_indicators(name, country, product_type, interval='daily'):
         if country is not None:
             country = unidecode(country.lower().strip())
 
-            if country not in data['country'].tolist():
+            if country not in list(set(data['country'].str.lower())):
                 raise ValueError("ERR#0124: introduced country does not exist or is not available.")
 
             data = data[data['country'] == country]
@@ -119,10 +120,10 @@ def technical_indicators(name, country, product_type, interval='daily'):
 
     name = unidecode(name.lower().strip())
 
-    if name not in [unidecode(value.lower()) for value in data[check].tolist()]:
+    if name not in list(data[check].apply(unidecode).str.lower()):
         raise ValueError("ERR#0122: introduced name does not exist in the introduced country (if required).")
 
-    product_id = data.loc[(data[check].str.lower() == name).idxmax(), 'id']
+    product_id = data.loc[(data[check].apply(unidecode).str.lower() == name).idxmax(), 'id']
 
     data_values = {
         'pairID': product_id,
@@ -206,14 +207,15 @@ def moving_averages(name, country, product_type, interval='daily'):
         ConnectionError: raised if the connection to Investing.com errored or could not be established. 
 
     Examples:
-        >>> investpy.moving_averages(name='bbva', country='spain', product_type='stock', interval='daily')
-              period  sma_value sma_signal  ema_value ema_signal
-            0      5      4.615        buy      4.650        buy
-            1     10      4.675       sell      4.693       sell
-            2     20      4.817       sell      4.763       sell
-            3     50      4.859       sell      4.825       sell
-            4    100      4.809       sell      4.830       sell
-            5    200      4.822       sell      4.867       sell
+        >>> data = investpy.moving_averages(name='bbva', country='spain', product_type='stock', interval='daily')
+        >>> data.head()
+          period  sma_value sma_signal  ema_value ema_signal
+        0      5      4.615        buy      4.650        buy
+        1     10      4.675       sell      4.693       sell
+        2     20      4.817       sell      4.763       sell
+        3     50      4.859       sell      4.825       sell
+        4    100      4.809       sell      4.830       sell
+        5    200      4.822       sell      4.867       sell
 
     """
 
@@ -253,7 +255,7 @@ def moving_averages(name, country, product_type, interval='daily'):
         if country is not None:
             country = unidecode(country.lower().strip())
 
-            if country not in data['country'].tolist():
+            if country not in list(set(data['country'].str.lower())):
                 raise ValueError("ERR#0124: introduced country does not exist or is not available.")
 
             data = data[data['country'] == country]
@@ -268,10 +270,10 @@ def moving_averages(name, country, product_type, interval='daily'):
 
     name = unidecode(name.lower().strip())
 
-    if name not in [unidecode(value.lower()) for value in data[check].tolist()]:
+    if name not in list(data[check].apply(unidecode).str.lower()):
         raise ValueError("ERR#0122: introduced name does not exist in the introduced country (if required).")
 
-    product_id = data.loc[(data[check].str.lower() == name).idxmax(), 'id']
+    product_id = data.loc[(data[check].apply(unidecode).str.lower() == name).idxmax(), 'id']
 
     data_values = {
         'pairID': product_id,
@@ -360,13 +362,14 @@ def pivot_points(name, country, product_type, interval='daily'):
         ConnectionError: raised if the connection to Investing.com errored or could not be established. 
 
     Examples:
-        >>> investpy.pivot_points(name='bbva', country='spain', product_type='stock', interval='daily')
-                    name     s3     s2     s1  pivot_points     r1     r2     r3
-            0    Classic  4.537  4.573  4.620         4.656  4.703  4.739  4.786
-            1  Fibonacci  4.573  4.605  4.624         4.656  4.688  4.707  4.739
-            2  Camarilla  4.645  4.653  4.660         4.656  4.676  4.683  4.691
-            3   Woodie's  4.543  4.576  4.626         4.659  4.709  4.742  4.792
-            4   DeMark's    NaN    NaN  4.639         4.665  4.721    NaN    NaN
+        >>> data = investpy.pivot_points(name='bbva', country='spain', product_type='stock', interval='daily')
+        >>> data.head()
+                name     s3     s2     s1  pivot_points     r1     r2     r3
+        0    Classic  4.537  4.573  4.620         4.656  4.703  4.739  4.786
+        1  Fibonacci  4.573  4.605  4.624         4.656  4.688  4.707  4.739
+        2  Camarilla  4.645  4.653  4.660         4.656  4.676  4.683  4.691
+        3   Woodie's  4.543  4.576  4.626         4.659  4.709  4.742  4.792
+        4   DeMark's    NaN    NaN  4.639         4.665  4.721    NaN    NaN
 
     """
 
@@ -406,7 +409,7 @@ def pivot_points(name, country, product_type, interval='daily'):
         if country is not None:
             country = unidecode(country.lower().strip())
 
-            if country not in data['country'].tolist():
+            if country not in list(set(data['country'].str.lower())):
                 raise ValueError("ERR#0124: introduced country does not exist or is not available.")
 
             data = data[data['country'] == country]
@@ -421,10 +424,10 @@ def pivot_points(name, country, product_type, interval='daily'):
 
     name = unidecode(name.lower().strip())
 
-    if name not in [unidecode(value.lower()) for value in data[check].tolist()]:
+    if name not in list(data[check].apply(unidecode).str.lower()):
         raise ValueError("ERR#0122: introduced name does not exist in the introduced country (if required).")
 
-    product_id = data.loc[(data[check].str.lower() == name).idxmax(), 'id']
+    product_id = data.loc[(data[check].apply(unidecode).str.lower() == name).idxmax(), 'id']
 
     data_values = {
         'pairID': product_id,
@@ -453,7 +456,7 @@ def pivot_points(name, country, product_type, interval='daily'):
     values = dict()
 
     for index, column in enumerate(header):
-        values.update({index: column.text_content().strip().lower().replace(' ', '_')})
+        values[index] = column.text_content().strip().lower().replace(' ', '_')
 
     table = root.xpath(".//table[contains(@class, 'crossRatesTbl')]/tbody/tr")
 
@@ -467,11 +470,11 @@ def pivot_points(name, country, product_type, interval='daily'):
             if value != 'name':
                 val = elements[key].text_content().strip()
                 try:
-                    pivot_pt.update({value: float(val)})
+                    pivot_pt[value] = float(val)
                 except:
-                    pivot_pt.update({value: None})
+                    pivot_pt[value] = None
             else:
-                pivot_pt.update({value: elements[key].text_content().strip()})
+                pivot_pt[value] = elements[key].text_content().strip()
         
         pivot_pts.append(pivot_pt)
 
