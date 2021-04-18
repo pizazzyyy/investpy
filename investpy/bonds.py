@@ -234,7 +234,7 @@ def get_bond_recent_data(bond, as_json=False, order='ascending', interval='Daily
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'bonds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0064: bonds file not found or errored.")
 
@@ -266,7 +266,7 @@ def get_bond_recent_data(bond, as_json=False, order='ascending', interval='Daily
         "User-Agent": random_user_agent(),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "text/html",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
 
@@ -466,7 +466,7 @@ def get_bond_historical_data(bond, from_date, to_date, as_json=False, order='asc
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'bonds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0064: bonds file not found or errored.")
 
@@ -505,7 +505,7 @@ def get_bond_historical_data(bond, from_date, to_date, as_json=False, order='asc
             "User-Agent": random_user_agent(),
             "X-Requested-With": "XMLHttpRequest",
             "Accept": "text/html",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
         }
 
@@ -634,7 +634,7 @@ def get_bond_information(bond, as_json=False):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'bonds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0064: bonds file not found or errored.")
 
@@ -655,7 +655,7 @@ def get_bond_information(bond, as_json=False):
         "User-Agent": random_user_agent(),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "text/html",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
 
@@ -789,7 +789,7 @@ def get_bonds_overview(country, as_json=False):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'bonds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0064: bonds file not found or errored.")
 
@@ -812,7 +812,7 @@ def get_bonds_overview(country, as_json=False):
         "User-Agent": random_user_agent(),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "text/html",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
 
@@ -908,7 +908,7 @@ def search_bonds(by, value):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'bonds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        bonds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0064: bonds file not found or errored.")
 

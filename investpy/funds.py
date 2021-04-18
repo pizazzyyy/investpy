@@ -241,7 +241,7 @@ def get_fund_recent_data(fund, country, as_json=False, order='ascending', interv
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'funds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0057: funds file not found or errored.")
 
@@ -281,7 +281,7 @@ def get_fund_recent_data(fund, country, as_json=False, order='ascending', interv
         "User-Agent": random_user_agent(),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "text/html",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
 
@@ -486,7 +486,7 @@ def get_fund_historical_data(fund, country, from_date, to_date, as_json=False, o
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'funds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0057: funds file not found or errored.")
 
@@ -531,7 +531,7 @@ def get_fund_historical_data(fund, country, from_date, to_date, as_json=False, o
             "User-Agent": random_user_agent(),
             "X-Requested-With": "XMLHttpRequest",
             "Accept": "text/html",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
         }
 
@@ -667,7 +667,7 @@ def get_fund_information(fund, country, as_json=False):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'funds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0057: funds file not found or errored.")
 
@@ -694,7 +694,7 @@ def get_fund_information(fund, country, as_json=False):
         "User-Agent": random_user_agent(),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "text/html",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
 
@@ -810,7 +810,7 @@ def get_funds_overview(country, as_json=False, n_results=100):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'funds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0057: funds file not found or errored.")
 
@@ -833,7 +833,7 @@ def get_funds_overview(country, as_json=False, n_results=100):
         "User-Agent": random_user_agent(),
         "X-Requested-With": "XMLHttpRequest",
         "Accept": "text/html",
-        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Encoding": "gzip, deflate",
         "Connection": "keep-alive",
     }
 
@@ -948,7 +948,7 @@ def search_funds(by, value):
     resource_package = 'investpy'
     resource_path = '/'.join(('resources', 'funds.csv'))
     if pkg_resources.resource_exists(resource_package, resource_path):
-        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path))
+        funds = pd.read_csv(pkg_resources.resource_filename(resource_package, resource_path), keep_default_na=False)
     else:
         raise FileNotFoundError("ERR#0057: funds file not found or errored.")
 
